@@ -1,5 +1,7 @@
 import { escapeHTML } from "./utils.js";
 
+const LIST_PAGE_SIZE = 100;
+
 function renderField(field) {
   switch (field.display) {
     case "badge":
@@ -113,31 +115,66 @@ export function renderCatProfile(cat, container) {
 export function renderList(clanData, clanId, container) {
   if (!clanData || clanData.length === 0) return renderEmpty(container);
 
-  let html = `
-    <div class="glass-panel cat-section">
-      <h3 class="section-title">Летопись клана (${clanData.length} котов)</h3>
-      <div class="cat-list">
-  `;
+  let shown = 0;
+  const total = clanData.length;
 
-  clanData.forEach((cat) => {
-    const avatar = escapeHTML(cat.primary.avatarUrl);
-    const fallback = escapeHTML(cat._avatarFallback);
-    const name = escapeHTML(cat.primary.name) || "Неизвестный";
-    const id = escapeHTML(cat.primary.id) || "";
+  const wrapper = document.createElement("div");
+  wrapper.className = "glass-panel cat-section";
 
-    html += `
-      <a href="#${clanId}/cat/${id}" class="glass-panel glass-interactive cat-list-item">
-        <img src="${avatar}" 
-            alt="${name}" 
-            class="list-avatar" 
-            onerror="this.src='${fallback}'; this.onerror=null;">
+  const title = document.createElement("h3");
+  title.className = "section-title";
+  title.textContent = `Летопись клана (${total} котов)`;
+  wrapper.appendChild(title);
+
+  const grid = document.createElement("div");
+  grid.className = "cat-list";
+  wrapper.appendChild(grid);
+
+  function renderBatch() {
+    const end = Math.min(shown + LIST_PAGE_SIZE, total);
+    for (let i = shown; i < end; i++) {
+      const cat = clanData[i];
+      const avatar = escapeHTML(cat.primary.avatarUrl);
+      const fallback = escapeHTML(cat._avatarFallback);
+      const name = escapeHTML(cat.primary.name) || "Неизвестный";
+      const id = escapeHTML(cat.primary.id) || "";
+
+      const link = document.createElement("a");
+      link.href = `#${clanId}/cat/${id}`;
+      link.className = "glass-panel glass-interactive cat-list-item";
+      link.innerHTML = `
+        <img src="${avatar}" alt="${name}" class="list-avatar" 
+             onerror="this.src='${fallback}'; this.onerror=null;">
         <span class="list-name">${name}</span>
-      </a>
-    `;
-  });
+      `;
+      grid.appendChild(link);
+    }
+    shown = end;
+    updateButton();
+  }
 
-  html += `</div></div>`;
-  container.innerHTML = html;
+  let moreBtn = null;
+
+  function updateButton() {
+    if (shown >= total) {
+      if (moreBtn) moreBtn.remove();
+      return;
+    }
+    if (!moreBtn) {
+      moreBtn = document.createElement("button");
+      moreBtn.className = "glass-panel glass-interactive load-more-btn";
+      moreBtn.addEventListener("click", renderBatch);
+      wrapper.appendChild(moreBtn);
+    }
+    const remaining = total - shown;
+    const nextBatch = Math.min(remaining, LIST_PAGE_SIZE);
+    moreBtn.textContent = `Показать ещё ${nextBatch} из ${remaining} оставшихся`;
+  }
+
+  renderBatch();
+
+  container.innerHTML = "";
+  container.appendChild(wrapper);
 }
 
 /**
@@ -226,6 +263,38 @@ export function renderClanTree(clanData, container) {
       <h3 style="margin-bottom: 10px; color: var(--accent);">Древо Клана</h3>
       <p class="hint">Я пукнул и всё исчезло</p>
       <p class="hint" style="margin-top: 10px;">Для построения древа понадобятся таблички чёрточки почечки бесплатно пять рублей</p>
+    </div>
+  `;
+}
+
+/**
+ * Renders the About page.
+ */
+export function renderAbout(container) {
+  container.innerHTML = `
+    <div class="glass-panel about-page">
+      <h2 class="about-title">О проекте</h2>
+      
+      <div class="about-block">
+        <h3>🐱 Что это?</h3>
+        <p>Удобное место, где собраны данные о котах из разных внутреплеменных или клановых Google Таблиц 
+        <a href="https://catwar.net" target="_blank" rel="noopener noreferrer" class="about-link">CatWar</a>.
+        </p>
+      </div>
+
+      <div class="about-block">
+        <h3>🐾 Разных племён и кланов?</h3>
+        <p>Да, такая возможность имеется, но пока не хотим :)</p>
+      </div>
+
+      <div class="about-block about-credits">
+        <h3>Кто умнички?</h3>
+        <div class="credits-list">
+          <p><a href="https://vk.com/catwar_uwu" target="_blank" rel="noopener noreferrer" class="about-link credit-link">CatWar UwU</a> — по всем техническим вопросам</p>
+          <p><span class="credit-link">Ибиртем / Затменная</span> — недокодер и создатель сайта</p>
+          <p><span class="credit-link">Лир / Провидец</span> — поддержка и табличных дел мастер</p>
+        </div>
+      </div>
     </div>
   `;
 }

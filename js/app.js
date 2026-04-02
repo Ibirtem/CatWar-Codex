@@ -22,6 +22,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (navChronicle) navChronicle.href = `#${defaultClan}/list`;
   if (navTree) navTree.href = `#${defaultClan}/tree`;
 
+  const navAbout = document.getElementById("nav-about");
+  if (navAbout) navAbout.href = `#${defaultClan}/about`;
+
   // Refresh button
   const refreshBtn = document.getElementById("refreshBtn");
   if (refreshBtn) {

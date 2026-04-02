@@ -8,6 +8,7 @@ import {
   renderError,
   renderClanTree,
   renderLoading,
+  renderAbout,
 } from "./renderer.js";
 
 export const Router = {
@@ -34,14 +35,18 @@ export const Router = {
 
     if (routeType === "tree") {
       document.getElementById("nav-tree")?.classList.add("active");
+    } else if (routeType === "about") {
+      document.getElementById("nav-about")?.classList.add("active");
     } else {
       document.getElementById("nav-chronicle")?.classList.add("active");
     }
 
     const navChronicle = document.getElementById("nav-chronicle");
     const navTree = document.getElementById("nav-tree");
+    const navAbout = document.getElementById("nav-about");
     if (navChronicle) navChronicle.href = `#${clanId}/list`;
     if (navTree) navTree.href = `#${clanId}/tree`;
+    if (navAbout) navAbout.href = `#${clanId}/about`;
 
     const clanConfig = AppConfig.clans[clanId];
     const appTitle = document.getElementById("appTitle");
@@ -124,6 +129,12 @@ export const Router = {
           if (searchWrapper) searchWrapper.style.display = "block";
           this._syncSearchInput(routeType);
           renderList(clanData, clanId, this._container);
+          break;
+
+        case "about":
+          if (searchWrapper) searchWrapper.style.display = "none";
+          this._syncSearchInput(routeType);
+          renderAbout(this._container);
           break;
 
         case "debug":
