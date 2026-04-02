@@ -1,0 +1,66 @@
+:root {
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-blur: 16px;
+  --glass-radius: 12px;
+  --accent: #7eb8ff;
+  --error: #ff6b6b;
+  --warning: #ffa94d;
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.6);
+}
+
+body {
+  margin: 0;
+  font-family: "Montserrat", sans-serif;
+  color: var(--text-primary);
+  background: #1a1a2e url("../assets/bg3.png") no-repeat center center fixed;
+  background-size: cover;
+  min-height: 100vh;
+}
+
+/* Base glass container */
+.glass-panel {
+  background-color: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-radius: var(--glass-radius);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Interactive elements */
+.glass-interactive {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.glass-interactive:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+/* States */
+.glass--error {
+  border-color: var(--error);
+  box-shadow: 0 0 20px rgba(255, 107, 107, 0.2);
+}
+.glass--warning {
+  border-color: var(--warning);
+}
+
+/* Scrollbar */
+.glass-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.glass-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+.glass-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.glass-scroll-x {
+  overflow-x: auto;
+}

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>База Данных - CatWar</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/glassmorphism.css" />
+    <link rel="stylesheet" href="css/components.css" />
+  </head>
+  <body>
+    <main class="main-container">
+      <header class="glass-panel app-header">
+        <h1 class="app-title" id="appTitle">Загрузка...</h1>
+        <nav class="app-nav">
+          <a href="#" class="nav-btn glass-interactive" id="nav-chronicle">Летопись</a>
+          <a href="#" class="nav-btn glass-interactive" id="nav-tree">Семейное Древо</a>
+          <button class="nav-btn glass-interactive refresh-btn" id="refreshBtn" title="Обновить данные">🔄</button>
+        </nav>
+      </header>
+
+      <div class="glass-panel search-wrapper">
+        <input
+          type="text"
+          id="searchInput"
+          class="search-input"
+          placeholder="Введите имя или ID кота..."
+          autocomplete="off"
+        />
+      </div>
+
+      <div id="contentArea"></div>
+    </main>
+
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>
