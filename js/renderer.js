@@ -300,6 +300,7 @@ export function renderAbout(container) {
         <h3>Кто умнички?</h3>
         <div class="credits-list">
           <p><a href="https://vk.com/catwar_uwu" target="_blank" rel="noopener noreferrer" class="about-link credit-link">CatWar UwU</a> — по всем техническим вопросам</p>
+          <p><a href="https://boosty.to/black_horizon" target="_blank" rel="noopener noreferrer" class="about-link credit-link">Boosty</a> — на донатик разрабу, ибо кушать хотят все 🩵</p>
           <p><span class="credit-link">Ибиртем / Затменная</span> — недокодер и создатель сайта</p>
           <p><span class="credit-link">Лир / Провидец</span> — поддержка и табличных дел мастер</p>
         </div>
