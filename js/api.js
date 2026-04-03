@@ -125,3 +125,86 @@ export async function fetchClanData(clanId) {
 
   return uniqueCats;
 }
+
+/**
+ * Fetches a supplementary table and returns a Map of ID → extracted field values.
+ * Used to enrich cat data with info from additional spreadsheets.
+ * @param {Object} supplement - Supplement config from AppConfig.
+ * @returns {Promise<Map<string, Object>>} Map where key is cat ID, value is {fieldKey: fieldValue}.
+ */
+export async function fetchSupplement(supplement) {
+  const matchCols = Array.isArray(supplement.matchBy)
+    ? supplement.matchBy
+    : [supplement.matchBy];
+
+  const keywords = [...matchCols];
+  supplement.fields.forEach((field) => {
+    const cols = Array.isArray(field.column) ? field.column : [field.column];
+    keywords.push(...cols);
+  });
+  const lowerKeywords = keywords.map((k) => String(k).toLowerCase().trim());
+
+  return new Promise((resolve) => {
+    Papa.parse(supplement.url, {
+      download: true,
+      header: false,
+      skipEmptyLines: "greedy",
+      complete: (results) => {
+        const grid = results.data;
+        if (!grid || grid.length === 0) return resolve(new Map());
+
+        const headerIndex = getHeaderInfo(grid, lowerKeywords);
+        const headers = grid[headerIndex].map((h) => String(h || "").trim());
+
+        const matchColIndex = headers.findIndex((h) =>
+          matchCols.some((m) => h.toLowerCase() === m.toLowerCase()),
+        );
+
+        if (matchColIndex === -1) {
+          console.warn(
+            `[API] Supplement "${supplement.id}": Match column not found in headers.`,
+          );
+          return resolve(new Map());
+        }
+
+        const fieldIndices = supplement.fields.map((fieldDef) => {
+          const cols = Array.isArray(fieldDef.column)
+            ? fieldDef.column
+            : [fieldDef.column];
+          const idx = headers.findIndex((h) =>
+            cols.some((c) => h.toLowerCase() === c.toLowerCase()),
+          );
+          return { fieldDef, idx };
+        });
+
+        const idMap = new Map();
+        const dataRows = grid.slice(headerIndex + 1);
+
+        dataRows.forEach((row) => {
+          const id = String(row[matchColIndex] || "").trim();
+          if (!id) return;
+
+          const extracted = {};
+          fieldIndices.forEach(({ fieldDef, idx }) => {
+            if (idx === -1) return;
+            const val = String(row[idx] || "").trim();
+            if (val) extracted[fieldDef.key] = val;
+          });
+
+          if (Object.keys(extracted).length > 0) {
+            idMap.set(id, extracted);
+          }
+        });
+
+        console.debug(
+          `[API] Supplement "${supplement.id}": ${idMap.size} entries loaded.`,
+        );
+        resolve(idMap);
+      },
+      error: (err) => {
+        console.error(`[API] Supplement "${supplement.id}" error:`, err);
+        resolve(new Map());
+      },
+    });
+  });
+}

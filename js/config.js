@@ -17,6 +17,24 @@ export const AppConfig = {
         },
       ],
 
+      supplements: [
+        {
+          id: "points",
+          url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBkNR0qvfj8mx5jyUMomn9KkhGC-1kJM3cAy8Zl4BBZaBDD3FljxvkT7s_XaPMcB_4EhvoB8eObRmY/pub?gid=0&single=true&output=csv",
+          matchBy: ["ID", "id"],
+          fields: [
+            {
+              key: "points",
+              column: ["Сумма", "сумма"],
+              label: "Баллы Ярких Огней",
+              display: "stat",
+              icon: "⭐",
+              targetSection: "Клановые данные",
+            },
+          ],
+        },
+      ],
+
       mapping: {
         searchableFields: ["id", "name", "nickname"],
 

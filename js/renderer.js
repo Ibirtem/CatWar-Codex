@@ -7,6 +7,15 @@ function renderField(field) {
     case "badge":
       return `<span class="glass-panel cat-badge">${escapeHTML(field.value)}</span>`;
 
+    case "stat":
+      return `<div class="glass-panel cat-stat">
+                <span class="stat-icon">${field.icon || "📊"}</span>
+                <div class="stat-body">
+                  <span class="stat-value">${escapeHTML(field.value)}</span>
+                  <span class="stat-label">${escapeHTML(field.label)}</span>
+                </div>
+              </div>`;
+
     case "chain": {
       const items = Array.isArray(field.value) ? field.value : [field.value];
       return `<div class="cat-chain">

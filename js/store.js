@@ -1,4 +1,4 @@
-import { fetchClanData } from "./api.js";
+import { fetchClanData, fetchSupplement } from "./api.js";
 import { AppConfig } from "./config.js";
 
 export const Store = {
@@ -30,6 +30,12 @@ export const Store = {
     this._loadingPromises[clanId] = (async () => {
       try {
         const mergedData = await fetchClanData(clanId);
+
+        const clanConfig = AppConfig.clans[clanId];
+        if (clanConfig.supplements && clanConfig.supplements.length > 0) {
+          await this._mergeSupplements(mergedData, clanConfig.supplements);
+        }
+
         this._data[clanId] = mergedData;
         this._lastFetch[clanId] = Date.now();
         this._buildSearchIndex(clanId);
@@ -89,5 +95,53 @@ export const Store = {
     return this._searchIndex[clanId]
       .filter((entry) => entry.text.includes(lowerQuery))
       .map((entry) => data[entry.index]);
+  },
+
+  /**
+   * Fetches all supplement tables and merges their data into cats
+   * by matching IDs. Each supplement field is injected into
+   * the target section defined in config.
+   */
+  async _mergeSupplements(cats, supplements) {
+    const supplementMaps = await Promise.all(
+      supplements.map((s) => fetchSupplement(s)),
+    );
+
+    cats.forEach((cat) => {
+      const catId = String(cat.primary.id).trim();
+
+      supplements.forEach((supplementDef, i) => {
+        const dataMap = supplementMaps[i];
+        const supplementData = dataMap.get(catId);
+        if (!supplementData) return;
+
+        supplementDef.fields.forEach((fieldDef) => {
+          const value = supplementData[fieldDef.key];
+          if (!value) return;
+
+          const targetTitle = fieldDef.targetSection;
+          let section = cat.sections.find((s) => s.title === targetTitle);
+          if (!section) {
+            section = { title: targetTitle, fields: [] };
+            cat.sections.push(section);
+          }
+
+          const exists = section.fields.some((f) => f.key === fieldDef.key);
+          if (!exists) {
+            section.fields.push({
+              key: fieldDef.key,
+              label: fieldDef.label || fieldDef.key,
+              value: value,
+              display: fieldDef.display || "text",
+              icon: fieldDef.icon || null,
+            });
+          }
+        });
+      });
+    });
+
+    console.debug(
+      `[Store] ${supplements.length} supplement(s) merged into ${cats.length} cats.`,
+    );
   },
 };
