@@ -263,17 +263,24 @@ export function renderDebug(clanData, container) {
 }
 
 /**
- * Renders a global family tree placeholder.
+ * Creates the Family Tree interface and returns controls for the router.
  */
-export function renderClanTree(clanData, container) {
+export function renderClanTree(container) {
   container.innerHTML = `
-    <div class="glass-panel state-container">
-      <p style="font-size: 3em; margin-bottom: 15px;">🌳</p>
-      <h3 style="margin-bottom: 10px; color: var(--accent);">Древо Клана</h3>
-      <p class="hint">Я пукнул и всё исчезло</p>
-      <p class="hint" style="margin-top: 10px;">Для построения древа понадобятся таблички чёрточки почечки бесплатно пять рублей</p>
+    <div class="glass-panel tree-container">
+      <div class="tree-search-container">
+        <input type="text" id="treeSearchInput" class="tree-search-input" placeholder="Поиск по имени или ID..." autocomplete="off" />
+        <ul id="treeSearchDropdown" class="tree-search-dropdown glass-scroll"></ul>
+      </div>
+      <canvas id="treeCanvas"></canvas>
     </div>
   `;
+
+  return {
+    canvas: document.getElementById("treeCanvas"),
+    searchInput: document.getElementById("treeSearchInput"),
+    searchDropdown: document.getElementById("treeSearchDropdown"),
+  };
 }
 
 /**

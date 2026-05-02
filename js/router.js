@@ -10,6 +10,9 @@ import {
   renderLoading,
   renderAbout,
 } from "./renderer.js";
+import { TreeLayout } from "./treeLayout.js";
+import { TreeRenderer } from "./treeRenderer.js";
+import { TreeController } from "./treeController.js";
 
 export const Router = {
   _container: null,
@@ -100,7 +103,7 @@ export const Router = {
         case "tree":
           if (searchWrapper) searchWrapper.style.display = "none";
           this._syncSearchInput(routeType);
-          renderClanTree(clanData, this._container);
+          await TreeController.init(this._container, clanId);
           break;
 
         case "cat":

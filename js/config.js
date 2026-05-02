@@ -35,6 +35,33 @@ export const AppConfig = {
         },
       ],
 
+      tree: {
+        url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTuuFBO2cTD6Ph66F_OAJHt8UmmXf8w1_NyBzMcJDLo6-J47S7WMNZ4FOhGW1qG0bB9Z-nxosd5j36o/pub?gid=1537864372&single=true&output=csv",
+        mapping: {
+          id: ["ID (без пробелов)"],
+          birthDate: [
+            "Дата рождения персонажа (Дата регистрации аккаунта или последняя дата перерождения - важно!)",
+            "Дата рождения персонажа",
+          ],
+          motherId: ["ID матери (без пробелов)"],
+          motherBirthDate: [
+            "Дата рождения матери (Дата регистрации аккаунта или последняя дата перерождения - важно!)",
+            "Дата рождения матери",
+          ],
+          fatherId: ["ID отца (без пробелов)"],
+          fatherBirthDate: [
+            "Дата рождения отца (Дата регистрации аккаунта или последняя дата перерождения - важно!)",
+            "Дата рождения отца",
+          ],
+          avatarUrl: [
+            "Ссылка на модельку/окрас (допускается лорный окрас, как в игровой)",
+          ],
+          forcedName: ["Насильно ввести имя Персонажа"],
+          forcedMotherName: ["Насильно ввести имя Матери"],
+          forcedFatherName: ["Насильно ввести имя Отца"],
+        },
+      },
+
       mapping: {
         searchableFields: ["id", "name", "nickname"],
 

@@ -208,3 +208,111 @@ export async function fetchSupplement(supplement) {
     });
   });
 }
+
+/**
+ * Loads and parses Family Tree CSV data.
+ * Finds the required columns based on the mapping configuration.
+ *
+ * @param {Object} treeConfig - Tree configuration from AppConfig.
+ * @returns {Promise<Array>} Returns an array of raw tree nodes.
+ */
+export async function fetchClanTree(treeConfig) {
+  if (!treeConfig || !treeConfig.url) return [];
+
+  const mapping = treeConfig.mapping;
+  const keywords = Object.values(mapping)
+    .flat()
+    .map((k) => String(k).toLowerCase().trim().split("\n")[0]);
+
+  return new Promise((resolve) => {
+    Papa.parse(treeConfig.url, {
+      download: true,
+      header: false,
+      skipEmptyLines: "greedy",
+      complete: (results) => {
+        const grid = results.data;
+        if (!grid || grid.length === 0) return resolve([]);
+
+        const headerIndex = getHeaderInfo(grid, keywords);
+        const headers = grid[headerIndex].map((h) => String(h || "").trim());
+
+        const findIdx = (possibleColNames) => {
+          return headers.findIndex((h) =>
+            possibleColNames.some((p) =>
+              h.toLowerCase().includes(p.toLowerCase().split("\n")[0]),
+            ),
+          );
+        };
+
+        const indices = {
+          id: findIdx(mapping.id),
+          birthDate: findIdx(mapping.birthDate),
+          motherId: findIdx(mapping.motherId),
+          motherBirthDate: findIdx(mapping.motherBirthDate),
+          fatherId: findIdx(mapping.fatherId),
+          fatherBirthDate: findIdx(mapping.fatherBirthDate),
+          avatarUrl: findIdx(mapping.avatarUrl),
+          forcedName: findIdx(mapping.forcedName),
+          forcedMotherName: findIdx(mapping.forcedMotherName),
+          forcedFatherName: findIdx(mapping.forcedFatherName),
+        };
+
+        const treeNodes = [];
+        const dataRows = grid.slice(headerIndex + 1);
+
+        dataRows.forEach((row) => {
+          const id =
+            indices.id !== -1 ? String(row[indices.id] || "").trim() : "";
+          if (!id) return;
+
+          treeNodes.push({
+            id,
+            birthDate:
+              indices.birthDate !== -1
+                ? String(row[indices.birthDate] || "").trim()
+                : "",
+            motherId:
+              indices.motherId !== -1
+                ? String(row[indices.motherId] || "").trim()
+                : "",
+            motherBirthDate:
+              indices.motherBirthDate !== -1
+                ? String(row[indices.motherBirthDate] || "").trim()
+                : "",
+            fatherId:
+              indices.fatherId !== -1
+                ? String(row[indices.fatherId] || "").trim()
+                : "",
+            fatherBirthDate:
+              indices.fatherBirthDate !== -1
+                ? String(row[indices.fatherBirthDate] || "").trim()
+                : "",
+            avatarUrl:
+              indices.avatarUrl !== -1
+                ? String(row[indices.avatarUrl] || "").trim()
+                : "",
+            forcedName:
+              indices.forcedName !== -1
+                ? String(row[indices.forcedName] || "").trim()
+                : "",
+            forcedMotherName:
+              indices.forcedMotherName !== -1
+                ? String(row[indices.forcedMotherName] || "").trim()
+                : "",
+            forcedFatherName:
+              indices.forcedFatherName !== -1
+                ? String(row[indices.forcedFatherName] || "").trim()
+                : "",
+          });
+        });
+
+        console.debug(`[API] Tree: ${treeNodes.length} nodes extracted.`);
+        resolve(treeNodes);
+      },
+      error: (err) => {
+        console.error(`[API] Tree fetch error:`, err);
+        resolve([]);
+      },
+    });
+  });
+}

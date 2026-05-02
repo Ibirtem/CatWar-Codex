@@ -1,4 +1,4 @@
-import { fetchClanData, fetchSupplement } from "./api.js";
+import { fetchClanData, fetchSupplement, fetchClanTree } from "./api.js";
 import { AppConfig } from "./config.js";
 
 export const Store = {
@@ -6,6 +6,9 @@ export const Store = {
   _loadingPromises: {},
   _lastFetch: {},
   _searchIndex: {},
+
+  _treeData: {},
+  _treeLoadingPromises: {},
 
   CACHE_TTL: 5 * 60 * 1000,
 
@@ -95,6 +98,101 @@ export const Store = {
     return this._searchIndex[clanId]
       .filter((entry) => entry.text.includes(lowerQuery))
       .map((entry) => data[entry.index]);
+  },
+
+  /**
+   * Retrieves and prepares Family Tree data.
+   * Merges data from the CSV tree with the main chronicle table to obtain names/avatars.
+   */
+  async getTreeData(clanId, forceRefresh = false) {
+    if (this._treeData[clanId] && !forceRefresh) {
+      return this._treeData[clanId];
+    }
+
+    if (this._treeLoadingPromises[clanId]) {
+      return this._treeLoadingPromises[clanId];
+    }
+
+    this._treeLoadingPromises[clanId] = (async () => {
+      try {
+        await this.getClanData(clanId, forceRefresh);
+
+        const clanConfig = AppConfig.clans[clanId];
+        if (!clanConfig.tree || !clanConfig.tree.url) {
+          return new Map();
+        }
+
+        const rawTreeNodes = await fetchClanTree(clanConfig.tree);
+        const mainRoster = this._data[clanId] || [];
+
+        const rosterMap = new Map();
+        mainRoster.forEach((cat) => rosterMap.set(String(cat.primary.id), cat));
+
+        const treeMap = new Map();
+
+        const getCatInfo = (id, forcedName) => {
+          if (forcedName) return { name: forcedName, avatar: null };
+          const rosterCat = rosterMap.get(id);
+          if (rosterCat) {
+            return {
+              name: rosterCat.primary.name,
+              avatar: rosterCat.primary.avatarUrl,
+              fallbackAvatar: rosterCat._avatarFallback,
+            };
+          }
+          return { name: `Кот #${id}`, avatar: null };
+        };
+
+        rawTreeNodes.forEach((node) => {
+          const info = getCatInfo(node.id, node.forcedName);
+          treeMap.set(node.id, {
+            id: node.id,
+            name: info.name,
+            avatarUrl: node.avatarUrl || info.avatar,
+            fallbackAvatar: info.fallbackAvatar || "assets/default-cat.png",
+            birthDate: node.birthDate,
+            motherId: node.motherId,
+            fatherId: node.fatherId,
+            isPhantom: false,
+          });
+        });
+
+        const addPhantomParent = (parentId, forcedName, parentBirthDate) => {
+          if (!parentId || treeMap.has(parentId)) return;
+          const info = getCatInfo(parentId, forcedName);
+          treeMap.set(parentId, {
+            id: parentId,
+            name: info.name,
+            avatarUrl: info.avatar,
+            fallbackAvatar: info.fallbackAvatar || "assets/default-cat.png",
+            birthDate: parentBirthDate,
+            motherId: "",
+            fatherId: "",
+            isPhantom: true,
+          });
+        };
+
+        rawTreeNodes.forEach((node) => {
+          addPhantomParent(
+            node.motherId,
+            node.forcedMotherName,
+            node.motherBirthDate,
+          );
+          addPhantomParent(
+            node.fatherId,
+            node.forcedFatherName,
+            node.fatherBirthDate,
+          );
+        });
+
+        this._treeData[clanId] = treeMap;
+        return treeMap;
+      } finally {
+        delete this._treeLoadingPromises[clanId];
+      }
+    })();
+
+    return this._treeLoadingPromises[clanId];
   },
 
   /**
