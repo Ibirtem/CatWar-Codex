@@ -4,25 +4,22 @@ export const TreeLayout = {
     nodeHeight: 220,
     siblingSpacing: 50,
     layerSpacing: 100,
-    virtualWidth: 20,
+    virtualWidth: 10,
   },
 
-  /**
-   * The main method for building the graph. Performs steps in a pipeline.
-   */
   build(treeDataMap) {
     if (!treeDataMap || treeDataMap.size === 0) {
       return { nodes: [], edges: [], layerLabels: [] };
     }
 
     const nodes = this._initNodes(treeDataMap);
-
     this._assignChronologicalLayers(nodes);
     this._applyTopologicalGravity(nodes);
 
     const { denseLayers, layerLabels } = this._compactLayers(nodes);
     const { layoutNodes, edges } = this._routeEdges(nodes, denseLayers);
 
+    this._minimizeCrossings(denseLayers, layoutNodes);
     this._calculateCoordinates(denseLayers, layoutNodes);
 
     const finalLabels = layerLabels.map((text, i) => ({
@@ -73,9 +70,10 @@ export const TreeLayout = {
       (a, b) => a - b,
     );
 
-    nodes.forEach(
-      (n) => (n.layer = n.ts ? uniqueMonths.indexOf(getYM(n.ts)) : 0),
-    );
+    nodes.forEach((n) => {
+      const idx = n.ts ? uniqueMonths.indexOf(getYM(n.ts)) : 0;
+      n.layer = idx < 0 ? 0 : idx;
+    });
   },
 
   _applyTopologicalGravity(nodes) {
@@ -99,13 +97,16 @@ export const TreeLayout = {
   },
 
   _compactLayers(nodes) {
-    const rawLayers = [];
+    const layerGroups = new Map();
     nodes.forEach((n) => {
-      if (!rawLayers[n.layer]) rawLayers[n.layer] = [];
-      rawLayers[n.layer].push(n);
+      if (!layerGroups.has(n.layer)) layerGroups.set(n.layer, []);
+      layerGroups.get(n.layer).push(n);
     });
 
-    const denseLayers = rawLayers.filter((l) => l && l.length > 0);
+    const sortedLayerKeys = Array.from(layerGroups.keys()).sort(
+      (a, b) => a - b,
+    );
+    const denseLayers = sortedLayerKeys.map((key) => layerGroups.get(key));
     const layerLabels = [];
 
     denseLayers.forEach((layerArr, i) => {
@@ -158,9 +159,6 @@ export const TreeLayout = {
             layer: l,
             layoutParents: [currentP.id],
             layoutChildren: [],
-            x: 0,
-            y: 0,
-            idealX: 0,
             width: this.config.virtualWidth,
             height: this.config.nodeHeight,
           };
@@ -190,32 +188,124 @@ export const TreeLayout = {
     return { layoutNodes, edges };
   },
 
-  _calculateCoordinates(denseLayers, layoutNodes) {
-    const getSpacing = (n) => (n.isVirtual ? 10 : this.config.siblingSpacing);
-
-    denseLayers.forEach((layer) => {
-      let x = 0;
-      layer.forEach((n) => {
-        n.x = x;
-        x += n.width + getSpacing(n);
-      });
-    });
+  _minimizeCrossings(denseLayers, layoutNodes) {
+    denseLayers.forEach((layer) => layer.forEach((n, i) => (n.order = i)));
 
     for (let iter = 0; iter < 8; iter++) {
       for (let l = 1; l < denseLayers.length; l++) {
-        this._centerNodesToParents(denseLayers[l], layoutNodes);
+        denseLayers[l].forEach((n) => {
+          if (n.layoutParents.length > 0) {
+            n.barycenter =
+              n.layoutParents.reduce(
+                (sum, pId) => sum + layoutNodes.get(pId).order,
+                0,
+              ) / n.layoutParents.length;
+          } else {
+            n.barycenter = n.order;
+          }
+        });
+        denseLayers[l].sort((a, b) => a.barycenter - b.barycenter);
+        denseLayers[l].forEach((n, i) => (n.order = i));
       }
+
       for (let l = denseLayers.length - 2; l >= 0; l--) {
-        this._centerNodesToChildren(denseLayers[l], layoutNodes);
+        denseLayers[l].forEach((n) => {
+          if (n.layoutChildren.length > 0) {
+            n.barycenter =
+              n.layoutChildren.reduce(
+                (sum, cId) => sum + layoutNodes.get(cId).order,
+                0,
+              ) / n.layoutChildren.length;
+          } else {
+            n.barycenter = n.order;
+          }
+        });
+        denseLayers[l].sort((a, b) => a.barycenter - b.barycenter);
+        denseLayers[l].forEach((n, i) => (n.order = i));
       }
     }
+  },
+
+  _calculateCoordinates(denseLayers, layoutNodes) {
+    const getMinSpace = (a, b) => {
+      if (a.isVirtual && b.isVirtual) return 18;
+      if (!a.isVirtual && !b.isVirtual) return this.config.siblingSpacing;
+      return 30;
+    };
 
     denseLayers.forEach((layer) => {
-      const minX = Math.min(...layer.map((n) => n.x));
-      const maxX = Math.max(...layer.map((n) => n.x + n.width));
-      const layerWidth = maxX - minX;
-      const offset = -minX - layerWidth / 2;
-      layer.forEach((n) => (n.x += offset));
+      let cx = 0;
+      layer.forEach((n) => {
+        n.cx = cx;
+        cx += n.width + this.config.siblingSpacing;
+      });
+    });
+
+    for (let iter = 0; iter < 30; iter++) {
+      layoutNodes.forEach((n) => {
+        let idealX = n.cx;
+        let pX = 0,
+          cX = 0;
+
+        if (n.layoutParents.length > 0) {
+          pX =
+            n.layoutParents.reduce(
+              (sum, pId) => sum + layoutNodes.get(pId).cx,
+              0,
+            ) / n.layoutParents.length;
+        }
+        if (n.layoutChildren.length > 0) {
+          cX =
+            n.layoutChildren.reduce(
+              (sum, cId) => sum + layoutNodes.get(cId).cx,
+              0,
+            ) / n.layoutChildren.length;
+        }
+
+        if (n.layoutParents.length > 0 && n.layoutChildren.length > 0) {
+          idealX = (pX + cX) / 2;
+        } else if (n.layoutParents.length > 0) {
+          idealX = pX;
+        } else if (n.layoutChildren.length > 0) {
+          idealX = cX;
+        }
+
+        n.cx += (idealX - n.cx) * 0.5;
+      });
+
+      denseLayers.forEach((layer) => {
+        for (let i = 1; i < layer.length; i++) {
+          const prev = layer[i - 1];
+          const curr = layer[i];
+          const reqSpace =
+            prev.width / 2 + curr.width / 2 + getMinSpace(prev, curr);
+          const dist = curr.cx - prev.cx;
+
+          if (dist < reqSpace) {
+            const overlap = reqSpace - dist;
+            prev.cx -= overlap / 2;
+            curr.cx += overlap / 2;
+          }
+        }
+
+        for (let i = layer.length - 2; i >= 0; i--) {
+          const curr = layer[i];
+          const next = layer[i + 1];
+          const reqSpace =
+            curr.width / 2 + next.width / 2 + getMinSpace(curr, next);
+          const dist = next.cx - curr.cx;
+
+          if (dist < reqSpace) {
+            const overlap = reqSpace - dist;
+            curr.cx -= overlap / 2;
+            next.cx += overlap / 2;
+          }
+        }
+      });
+    }
+
+    layoutNodes.forEach((n) => {
+      n.x = n.cx - n.width / 2;
     });
 
     denseLayers.forEach((layerArr, i) => {
@@ -223,48 +313,6 @@ export const TreeLayout = {
         (n) => (n.y = i * (this.config.nodeHeight + this.config.layerSpacing)),
       );
     });
-  },
-
-  _centerNodesToParents(layer, layoutNodes) {
-    layer.forEach((n) => {
-      if (n.layoutParents.length > 0) {
-        const avgParentX =
-          n.layoutParents.reduce((sum, pId) => {
-            const p = layoutNodes.get(pId);
-            return sum + p.x + p.width / 2;
-          }, 0) / n.layoutParents.length;
-        n.x = avgParentX - n.width / 2;
-      }
-    });
-    this._resolveOverlaps(layer);
-  },
-
-  _centerNodesToChildren(layer, layoutNodes) {
-    layer.forEach((n) => {
-      if (n.layoutChildren.length > 0) {
-        const avgChildX =
-          n.layoutChildren.reduce((sum, cId) => {
-            const c = layoutNodes.get(cId);
-            return sum + c.x + c.width / 2;
-          }, 0) / n.layoutChildren.length;
-        n.x = avgChildX - n.width / 2;
-      }
-    });
-    this._resolveOverlaps(layer);
-  },
-
-  _resolveOverlaps(layer) {
-    const spacing = this.config.siblingSpacing;
-    layer.sort((a, b) => a.x - b.x);
-    for (let i = 1; i < layer.length; i++) {
-      const prev = layer[i - 1];
-      const curr = layer[i];
-      const minDistance =
-        prev.width + (prev.isVirtual || curr.isVirtual ? 10 : spacing);
-      if (curr.x < prev.x + minDistance) {
-        curr.x = prev.x + minDistance;
-      }
-    }
   },
 
   _parseDate(dateStr) {
