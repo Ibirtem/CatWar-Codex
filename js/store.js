@@ -143,25 +143,42 @@ export const Store = {
           return { name: `Кот #${id}`, avatar: null };
         };
 
+        const makeKey = (id, date) => {
+          if (!id) return "";
+          const cleanDate = (date || "").trim();
+          return cleanDate ? `${id}__${cleanDate}` : String(id);
+        };
+
         rawTreeNodes.forEach((node) => {
+          const nodeKey = makeKey(node.id, node.birthDate);
+          const mKey = makeKey(node.motherId, node.motherBirthDate);
+          const fKey = makeKey(node.fatherId, node.fatherBirthDate);
+
           const info = getCatInfo(node.id, node.forcedName);
-          treeMap.set(node.id, {
-            id: node.id,
+          treeMap.set(nodeKey, {
+            id: nodeKey,
+            displayId: node.id,
             name: info.name,
             avatarUrl: node.avatarUrl || info.avatar,
             fallbackAvatar: info.fallbackAvatar || "assets/default-cat.png",
             birthDate: node.birthDate,
-            motherId: node.motherId,
-            fatherId: node.fatherId,
+            motherId: mKey,
+            fatherId: fKey,
             isPhantom: false,
           });
         });
 
-        const addPhantomParent = (parentId, forcedName, parentBirthDate) => {
-          if (!parentId || treeMap.has(parentId)) return;
-          const info = getCatInfo(parentId, forcedName);
-          treeMap.set(parentId, {
-            id: parentId,
+        const addPhantomParent = (
+          origId,
+          parentKey,
+          forcedName,
+          parentBirthDate,
+        ) => {
+          if (!parentKey || treeMap.has(parentKey)) return;
+          const info = getCatInfo(origId, forcedName);
+          treeMap.set(parentKey, {
+            id: parentKey,
+            displayId: origId,
             name: info.name,
             avatarUrl: info.avatar,
             fallbackAvatar: info.fallbackAvatar || "assets/default-cat.png",
@@ -173,13 +190,17 @@ export const Store = {
         };
 
         rawTreeNodes.forEach((node) => {
+          const mKey = makeKey(node.motherId, node.motherBirthDate);
+          const fKey = makeKey(node.fatherId, node.fatherBirthDate);
           addPhantomParent(
             node.motherId,
+            mKey,
             node.forcedMotherName,
             node.motherBirthDate,
           );
           addPhantomParent(
             node.fatherId,
+            fKey,
             node.forcedFatherName,
             node.fatherBirthDate,
           );

@@ -54,7 +54,7 @@ export const TreeController = {
         .filter(
           (n) =>
             (n.name && n.name.toLowerCase().includes(query)) ||
-            n.id.includes(query),
+            (n.displayId && n.displayId.includes(query)),
         )
         .slice(0, 8);
 
@@ -63,7 +63,7 @@ export const TreeController = {
         matches.forEach((m) => {
           const li = document.createElement("li");
           li.className = "tree-search-item";
-          li.innerHTML = `<span>${m.name || "Неизвестный"}</span><span class="tree-search-item-id">ID: ${m.id}</span>`;
+          li.innerHTML = `<span>${m.name || "Неизвестный"}</span><span class="tree-search-item-id">ID: ${m.displayId}</span>`;
 
           li.onclick = () => {
             if (this._currentRenderer)

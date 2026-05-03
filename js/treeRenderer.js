@@ -3,12 +3,20 @@ export class TreeRenderer {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
     this.nodes = [];
+    this.edges = [];
     this.nodeMap = new Map();
     this.transform = { x: 0, y: 0, scale: 0.8 };
     this.isDragging = false;
     this.lastMouse = { x: 0, y: 0 };
     this.imageCache = new Map();
     this.animation = null;
+
+    this.selectedNodeId = null;
+    this.highlightedNodes = new Set();
+    this.highlightedEdges = new Set();
+    this.adj = new Map();
+    this.dragStartX = 0;
+    this.dragStartY = 0;
 
     this._initResize();
     this._bindEvents();
@@ -44,6 +52,18 @@ export class TreeRenderer {
     this.layerLabels = layerLabels;
     this.nodeMap.clear();
     this.nodes.forEach((n) => this.nodeMap.set(n.id, n));
+
+    this.adj.clear();
+    this.nodes.forEach((n) => this.adj.set(n.id, { up: [], down: [] }));
+    this.edges.forEach((e) => {
+      if (!this.adj.has(e.source)) this.adj.set(e.source, { up: [], down: [] });
+      if (!this.adj.has(e.target)) this.adj.set(e.target, { up: [], down: [] });
+      this.adj.get(e.source).down.push(e.target);
+      this.adj.get(e.target).up.push(e.source);
+    });
+
+    this.selectedNodeId = null;
+    this._updateHighlights();
 
     if (this.nodes.length > 0) {
       const root = this.nodes.find((n) => n.layer === 0) || this.nodes[0];
@@ -85,10 +105,19 @@ export class TreeRenderer {
     this.canvas.addEventListener("mousedown", (e) => {
       this.isDragging = true;
       this.lastMouse = { x: e.clientX, y: e.clientY };
+      this.dragStartX = e.clientX;
+      this.dragStartY = e.clientY;
       if (this.animation) cancelAnimationFrame(this.animation.id);
     });
 
-    window.addEventListener("mouseup", () => (this.isDragging = false));
+    window.addEventListener("mouseup", (e) => {
+      this.isDragging = false;
+      if (
+        Math.hypot(e.clientX - this.dragStartX, e.clientY - this.dragStartY) < 5
+      ) {
+        this._handleClick(e);
+      }
+    });
 
     window.addEventListener("mousemove", (e) => {
       if (!this.isDragging) return;
@@ -126,6 +155,57 @@ export class TreeRenderer {
       },
       { passive: false },
     );
+  }
+
+  _handleClick(e) {
+    const rect = this.canvas.getBoundingClientRect();
+    const mx =
+      (e.clientX - rect.left - this.transform.x) / this.transform.scale;
+    const my = (e.clientY - rect.top - this.transform.y) / this.transform.scale;
+
+    const clickedNode = this.nodes.find(
+      (n) =>
+        mx >= n.x && mx <= n.x + n.width && my >= n.y && my <= n.y + n.height,
+    );
+
+    if (clickedNode) {
+      this.selectedNodeId =
+        this.selectedNodeId === clickedNode.id ? null : clickedNode.id;
+    } else {
+      this.selectedNodeId = null;
+    }
+
+    this._updateHighlights();
+    this.draw();
+  }
+
+  _updateHighlights() {
+    this.highlightedNodes.clear();
+    this.highlightedEdges.clear();
+
+    if (!this.selectedNodeId) return;
+
+    let queue = [this.selectedNodeId];
+    while (queue.length > 0) {
+      const curr = queue.pop();
+      this.highlightedNodes.add(curr);
+      const parents = this.adj.get(curr)?.up || [];
+      parents.forEach((p) => {
+        this.highlightedEdges.add(`${p}->${curr}`);
+        if (!this.highlightedNodes.has(p)) queue.push(p);
+      });
+    }
+
+    queue = [this.selectedNodeId];
+    while (queue.length > 0) {
+      const curr = queue.pop();
+      this.highlightedNodes.add(curr);
+      const children = this.adj.get(curr)?.down || [];
+      children.forEach((c) => {
+        this.highlightedEdges.add(`${curr}->${c}`);
+        if (!this.highlightedNodes.has(c)) queue.push(c);
+      });
+    }
   }
 
   _getImage(url, fallback) {
@@ -177,10 +257,29 @@ export class TreeRenderer {
       });
     }
 
-    this.ctx.strokeStyle = "rgba(126, 184, 255, 0.4)";
-    this.ctx.lineWidth = 3;
+    const edgesToDraw = [...(this.edges || [])].sort((a, b) => {
+      const aHi =
+        this.selectedNodeId &&
+        this.highlightedEdges.has(`${a.source}->${a.target}`);
+      const bHi =
+        this.selectedNodeId &&
+        this.highlightedEdges.has(`${b.source}->${b.target}`);
+      return aHi === bHi ? 0 : aHi ? 1 : -1;
+    });
 
-    this.edges?.forEach((edge) => {
+    edgesToDraw.forEach((edge) => {
+      const isHighlighted =
+        this.selectedNodeId &&
+        this.highlightedEdges.has(`${edge.source}->${edge.target}`);
+      const isDimmed = this.selectedNodeId && !isHighlighted;
+
+      this.ctx.strokeStyle = isHighlighted
+        ? "rgba(255, 169, 77, 0.9)"
+        : isDimmed
+          ? "rgba(126, 184, 255, 0.15)"
+          : "rgba(126, 184, 255, 0.4)";
+      this.ctx.lineWidth = isHighlighted ? 4 : 3;
+
       this.ctx.beginPath();
       const startNode = edge.path[0];
       this.ctx.moveTo(
@@ -217,6 +316,11 @@ export class TreeRenderer {
     });
 
     this.nodes?.forEach((node) => {
+      const isHighlighted =
+        !this.selectedNodeId || this.highlightedNodes.has(node.id);
+
+      this.ctx.globalAlpha = isHighlighted ? 1.0 : 0.5;
+
       this.ctx.fillStyle = "rgba(25, 25, 40, 0.7)";
       this.ctx.beginPath();
       this.ctx.roundRect(node.x, node.y, node.width, node.height, 12);
@@ -224,7 +328,9 @@ export class TreeRenderer {
 
       this.ctx.strokeStyle = node.isPhantom
         ? "rgba(255,255,255,0.1)"
-        : "rgba(126, 184, 255, 0.5)";
+        : isHighlighted && this.selectedNodeId
+          ? "rgba(255, 169, 77, 0.5)"
+          : "rgba(126, 184, 255, 0.5)";
       this.ctx.stroke();
 
       const imgW = 100;
@@ -264,7 +370,7 @@ export class TreeRenderer {
 
       this.ctx.fillStyle = "rgba(126, 184, 255, 0.8)";
       this.ctx.font = "10px monospace";
-      this.ctx.fillText(node.id, node.x + node.width / 2, node.y + 198);
+      this.ctx.fillText(node.displayId, node.x + node.width / 2, node.y + 198);
 
       if (node.birthDate) {
         this.ctx.fillStyle = "rgba(255,255,255,0.4)";
@@ -277,6 +383,7 @@ export class TreeRenderer {
       }
     });
 
+    this.ctx.globalAlpha = 1.0;
     this.ctx.restore();
   }
 
